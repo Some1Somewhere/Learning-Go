@@ -4,25 +4,25 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"io"
+
 	"log"
 	"os"
 	"strings"
 )
 
-func checkError(err error) {
+func checkError(err error, linenum int) {
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Line Num : ", linenum, " Error : ", err)
 	}
 }
 
 func scanGitFolders(folders []string, folder string) []string {
 	folder = strings.TrimSuffix(folder, "/")
 	f, err := os.Open(folder)
-	checkError(err)
+	checkError(err, 22)
 	files, err := f.Readdir(-1)
 	defer f.Close()
-	checkError(err)
+	checkError(err, 25)
 
 	var path string
 	for _, file := range files {
@@ -32,24 +32,24 @@ func scanGitFolders(folders []string, folder string) []string {
 				folders = append(folders, path)
 				continue
 			}
-			if file.Name() == "android" || file.Name() == "assets" || file.Name() == "build" || file.Name() == "ios" || file.Name() == "lib" || file.Name() == "test" || file.Name() == "web" || file.Name() == "node_modules" || file.Name() == "public" || file.Name() == "src" {
+			if file.Name() == ".dart_tool" || file.Name() == ".github" || file.Name() == ".firebase" || file.Name() == "android" || file.Name() == "assets" || file.Name() == "build" || file.Name() == "ios" || file.Name() == "lib" || file.Name() == "test" || file.Name() == "web" || file.Name() == "node_modules" || file.Name() == "public" || file.Name() == "src" {
 				continue
 			}
 			path = folder + "/" + file.Name()
-			folders = scanGitFolders(folders, path)
+			folders = scanGitFolders(folders, path) //keeps checking internal folders for .git
 		}
 	}
 	return folders
 }
 
 func addNewSliceElementsToFile(path string, newRepos []string) {
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0755)
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0755) //Opens the gogitlocalstats file
 	if err != nil {
 		if os.IsNotExist(err) {
-			_, err = os.Create(path)
-			checkError(err)
+			_, err = os.Create(path) //creates if it doesn't exist
+			checkError(err, 50)
 		} else {
-			checkError(err)
+			checkError(err, 52)
 		}
 	}
 	defer f.Close()
@@ -58,18 +58,16 @@ func addNewSliceElementsToFile(path string, newRepos []string) {
 	for scanner.Scan() {
 		existingRepos = append(existingRepos, scanner.Text())
 	}
-	if err := scanner.Err(); err != io.EOF {
-		checkError(err)
-	}
-	//repos := joinSlices(newRepos, existingRepos)
-	//dumpStringsSliceToFile(repos, path)
+	repos := append(newRepos, existingRepos...) //Makes sure if folder is already scanned, doesn't have to scan again
+	contentToWrite := strings.Join(repos, "\n")
+	err2 := os.WriteFile(path, []byte(contentToWrite), 0755)
+	checkError(err2, 66)
 }
 
 func scan(path string) {
 	repos := scanGitFolders(make([]string, 0), path)
-	fmt.Print(repos)
-	//filePath := "./.gogitlocalstats" //Relative to current folder, tutorial has fixed path
-	//addNewSliceElementsToFile(filePath, repos)
+	filePath := "./.gogitlocalstats" //Relative to current folder, tutorial has fixed path
+	addNewSliceElementsToFile(filePath, repos)
 }
 
 func stats(email string) {
